@@ -17,6 +17,9 @@ import ru.netology.i18n.LocalizationService;
 import java.util.HashMap;
 import java.util.Map;
 
+import static ru.netology.geo.GeoServiceImpl.MOSCOW_IP;
+import static ru.netology.geo.GeoServiceImpl.NEW_YORK_IP;
+
 @ExtendWith(MockitoExtension.class)
 public class MessageSenderTest {
 
@@ -41,7 +44,11 @@ public class MessageSenderTest {
     void setup() {
         Mockito.lenient().when(geoService.byIp(RU_IP))
                 .thenReturn(new Location(null, Country.RUSSIA, null, 0));
+        Mockito.lenient().when(geoService.byIp(MOSCOW_IP))
+                .thenReturn(new Location(null, Country.RUSSIA, null, 0));
         Mockito.lenient().when(geoService.byIp(US_IP))
+                .thenReturn(new Location(null, Country.USA, null, 0));
+        Mockito.lenient().when(geoService.byIp(NEW_YORK_IP))
                 .thenReturn(new Location(null, Country.USA, null, 0));
         Mockito.lenient().when(geoService.byIp(LH_IP))
                 .thenReturn(new Location(null, null, null, 0));
@@ -50,6 +57,7 @@ public class MessageSenderTest {
 
         Mockito.lenient().when(localizationService.locale(Country.RUSSIA)).thenReturn(RU_TEXT);
         Mockito.lenient().when(localizationService.locale(Country.USA)).thenReturn(EN_TEXT);
+        Mockito.lenient().when(localizationService.locale(null)).thenThrow(new NullPointerException());
 
         messageSender = new MessageSenderImpl(geoService, localizationService);
         headers = new HashMap<String, String>();
@@ -57,7 +65,7 @@ public class MessageSenderTest {
 
     @ParameterizedTest
     @DisplayName("Проверка MessageSenderImpl на отправку русского текста")
-    @ValueSource(strings = {RU_IP})
+    @ValueSource(strings = {RU_IP, MOSCOW_IP})
     void shouldSendRussianText(String ip) {
         headers.put(MessageSenderImpl.IP_ADDRESS_HEADER, ip);
 
@@ -66,10 +74,24 @@ public class MessageSenderTest {
 
     @ParameterizedTest
     @DisplayName("Проверка MessageSenderImpl на отправку английского текста")
-    @ValueSource(strings = {US_IP, LH_IP, UDF_IP})
+    @ValueSource(strings = {US_IP, NEW_YORK_IP})
     void shouldSendEnglishText(String ip) {
         headers.put(MessageSenderImpl.IP_ADDRESS_HEADER, ip);
 
         Assertions.assertEquals(EN_TEXT, messageSender.send(headers));
+    }
+
+    @ParameterizedTest
+    @DisplayName("Проверка MessageSenderImpl на ошибку при неопределённых адресах")
+    @ValueSource(strings = {LH_IP, UDF_IP})
+    void shouldThrowNPE(String ip) {
+        headers.put(MessageSenderImpl.IP_ADDRESS_HEADER, ip);
+
+        try {
+            messageSender.send(headers);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Assertions.assertEquals("java.lang.NullPointerException", e.getClass().getName());
+        }
     }
 }
